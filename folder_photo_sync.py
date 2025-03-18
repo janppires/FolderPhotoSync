@@ -1,18 +1,19 @@
 import os
 import shutil
 import datetime
+import subprocess
 from pathlib import Path
 from PIL import Image as PILImage
 import piexif
 
-# Define the root directory of your photos (replace with your NAS path)
-root_dir = "/Volumes/home/Photos/OtherPhotos/2022-Little Angles, Nursery, London"
+# Define the root directory of your photos and videos (replace with your NAS path)
+root_dir = "/Volumes/home/Photos/OtherPhotos/Some Photos"
 
-# Define the destination directory for copied photos
-dest_dir = "/Volumes/home/Photos/OtherPhotos/2022-Little Angles Nursery, London - Update"
+# Define the destination directory for copied files
+dest_dir = "/Volumes/home/Photos/OtherPhotos/Some Photos - Update"
 
-# Supported image extensions (you can add more if needed)
-image_extensions = ('.jpg', '.jpeg', '.png')
+# Supported file extensions
+supported_extensions = ('.jpg', '.jpeg', '.png', '.mp4')
 
 # Function to extract date from folder name
 def extract_date_from_folder(folder_name):
@@ -29,7 +30,7 @@ def extract_date_from_folder(folder_name):
         print(f"Could not parse date from folder name: {folder_name}")
         return None
 
-# Function to update or add EXIF timestamp
+# Function to update or add EXIF timestamp for images
 def update_exif_timestamp(image_path, new_timestamp):
     try:
         # Check if the file exists and is readable
@@ -77,21 +78,28 @@ def update_exif_timestamp(image_path, new_timestamp):
         print(f"Failed to update EXIF timestamp for {image_path}: {e}")
         return False
 
-# Function to update filesystem timestamps
+# Function to update filesystem timestamps for all files
 def update_filesystem_timestamps(file_path, new_timestamp):
     try:
-        # Convert the new timestamp to a Unix timestamp
-        timestamp = new_timestamp.timestamp()
+        # Format the timestamp for exiftool
+        timestamp_str = new_timestamp.strftime('%Y:%m:%d %H:%M:%S')
         
-        # Update modification and access times
-        os.utime(file_path, (timestamp, timestamp))
+        # Use exiftool to set all timestamps (creation, modification, and QuickTime metadata for videos)
+        subprocess.run([
+            'exiftool',
+            '-overwrite_original',
+            f'-CreateDate={timestamp_str}',
+            f'-ModifyDate={timestamp_str}',
+            f'-FileCreateDate={timestamp_str}',
+            f'-FileModifyDate={timestamp_str}',
+            file_path
+        ], check=True)
         
-        print(f"Updated filesystem timestamps (mtime and atime) for {file_path} to {new_timestamp}")
-        
-        # Note: Setting creation time (birthtime) on macOS requires additional steps
-        print(f"Note: Creation time (birthtime) update is not directly supported by os.utime. Use 'exiftool' or 'SetFile' as a workaround (see below).")
-        
+        print(f"Updated all timestamps (filesystem and metadata) for {file_path} to {timestamp_str}")
         return True
+    except subprocess.CalledProcessError as e:
+        print(f"Failed to update timestamps with exiftool for {file_path}: {e}")
+        return False
     except Exception as e:
         print(f"Failed to update filesystem timestamps for {file_path}: {e}")
         return False
@@ -104,13 +112,17 @@ def copy_and_update_timestamps(src_path, dest_path, new_timestamp):
     # Copy the file
     shutil.copy2(src_path, dest_path)
     
-    # Update the EXIF timestamp
-    if update_exif_timestamp(dest_path, new_timestamp):
-        # Update the filesystem timestamps
+    # Update timestamps based on file type
+    if dest_path.lower().endswith(('.jpg', '.jpeg', '.png')):
+        if update_exif_timestamp(dest_path, new_timestamp):
+            update_filesystem_timestamps(dest_path, new_timestamp)
+    elif dest_path.lower().endswith('.mp4'):
         update_filesystem_timestamps(dest_path, new_timestamp)
+    else:
+        print(f"Unsupported file type for {dest_path}. Skipping timestamp update.")
 
 # Main script
-def process_photos():
+def process_files():
     # Walk through the root directory
     for folder_name in os.listdir(root_dir):
         folder_path = os.path.join(root_dir, folder_name)
@@ -127,11 +139,11 @@ def process_photos():
         # Create the corresponding destination folder
         dest_folder = os.path.join(dest_dir, folder_name)
         
-        # Walk through the folder to find images
+        # Walk through the folder to find supported files
         for root, _, files in os.walk(folder_path):
             for file in files:
-                # Check if the file is an image
-                if file.lower().endswith(image_extensions):
+                # Check if the file is supported
+                if file.lower().endswith(supported_extensions):
                     src_file = os.path.join(root, file)
                     # Construct the destination path
                     relative_path = os.path.relpath(src_file, folder_path)
@@ -144,5 +156,5 @@ if __name__ == "__main__":
     os.makedirs(dest_dir, exist_ok=True)
     
     # Run the script
-    process_photos()
+    process_files()
     print("Processing complete!")
