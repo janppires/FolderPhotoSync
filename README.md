@@ -12,9 +12,9 @@ A Python script to synchronize photo timestamps with the date extracted from the
 # Features
 - Extracts the date from parent folder names (e.g., `2022-03-17`).
 - Updates EXIF metadata (DateTime, DateTimeOriginal, DateTimeDigitized) to midday (12:00:00) of the folder date.
-- Sets filesystem modification and access timestamps to the same midday date.
-- Preserves folder structure while copying photos to a new destination.
-- Supports JPEG and PNG image formats.
+- Sets filesystem modification and access timestamps, and creation time where supported, to the same midday date for both images and videos.
+- Preserves folder structure while copying photos and videos to a new destination.
+- Supports JPEG, PNG, and MP4 file formats.
 - Compatible with NAS setups (e.g., Synology) mounted on macOS.
 - Note: Creation time (`birthtime`) on macOS is not updated directly by this script. See Troubleshooting for workarounds.
 
@@ -67,17 +67,19 @@ python folderphotosync.py
 2022/
 ├── 2022-03-17/
 │   ├── photo1.jpg
-│   └── photo2.png
+│   ├── photo2.png
+│   └── video1.mp4
 ├── 2022-03-18-First Day/
 │   ├── image3.jpg
-│   └── image4.png
+│   └── video2.mp4
 2022_Updated/
 ├── 2022-03-17/
 │   ├── photo1.jpg (timestamps set to 2022-03-17 12:00:00)
-│   └── photo2.png (timestamps set to 2022-03-17 12:00:00)
+│   ├── photo2.png (timestamps set to 2022-03-17 12:00:00)
+│   └── video1.mp4 (timestamps set to 2022-03-17 12:00:00)
 ├── 2022-03-18-First Day/
 │   ├── image3.jpg (timestamps set to 2022-03-18 12:00:00)
-│   └── image4.png (timestamps set to 2022-03-18 12:00:00)
+│   └── video2.mp4 (timestamps set to 2022-03-18 12:00:00)
 ```
 # Configuration
 - Modify image_extensions in the script to support additional file types (e.g., .gif, .bmp).
